@@ -1,0 +1,36 @@
+# ==============================================================
+# Terraform .gitignore
+# KHÔNG BAO GIỜ commit các file dưới đây lên Git
+# ==============================================================
+
+# State files - chứa toàn bộ thông tin hạ tầng (có thể chứa secrets)
+*.tfstate
+*.tfstate.*
+
+# Thư mục .terraform - chứa provider binaries (rất nặng, ~100MB+)
+.terraform/
+.terraform.lock.hcl
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# File tfvars có thể chứa thông tin nhạy cảm (DB password, API key...)
+# Uncommment nếu tfvars của bạn có secrets:
+# *.tfvars
+# !terraform.tfvars.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# SSH Keys
+*.pem
