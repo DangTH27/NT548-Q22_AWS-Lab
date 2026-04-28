@@ -26,21 +26,22 @@ resource "aws_iam_role" "ec2_ssm" {
       Principal = { Service = "ec2.amazonaws.com" }
     }]
   })
+}
 
-  inline_policy {
-    name = "ssm-swarm-token"
-    policy = jsonencode({
-      Version = "2012-10-17"
-      Statement = [{
-        Action = [
-          "ssm:PutParameter",
-          "ssm:GetParameter"
-        ]
-        Effect   = "Allow"
-        Resource = "*"
-      }]
-    })
-  }
+resource "aws_iam_role_policy" "ssm_swarm" {
+  name   = "ssm-swarm-token"
+  role   = aws_iam_role.ec2_ssm.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = [
+        "ssm:PutParameter",
+        "ssm:GetParameter"
+      ]
+      Effect   = "Allow"
+      Resource = "*"
+    }]
+  })
 }
 
 resource "aws_iam_role_policy_attachment" "ssm" {

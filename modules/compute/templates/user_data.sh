@@ -9,7 +9,7 @@ MAX_WAIT=300
 WAITED=0
 until curl -s --max-time 5 https://aws.amazon.com > /dev/null 2>&1; do
   if [ $WAITED -ge $MAX_WAIT ]; then
-    echo "ERROR: No internet after ${MAX_WAIT}s"
+    echo "ERROR: No internet after $${MAX_WAIT}s"
     exit 1
   fi
   sleep 10
