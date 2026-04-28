@@ -111,11 +111,7 @@ resource "aws_lb_target_group" "result" {
     matcher             = "200"
   }
 
-  stickiness {
-    type            = "lb_cookie"
-    cookie_duration = 86400
-    enabled         = true
-  }
+
 
   tags = {
     Name = "${local.name_prefix}-result-tg"
