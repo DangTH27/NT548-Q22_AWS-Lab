@@ -26,6 +26,21 @@ resource "aws_iam_role" "ec2_ssm" {
       Principal = { Service = "ec2.amazonaws.com" }
     }]
   })
+
+  inline_policy {
+    name = "ssm-swarm-token"
+    policy = jsonencode({
+      Version = "2012-10-17"
+      Statement = [{
+        Action = [
+          "ssm:PutParameter",
+          "ssm:GetParameter"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      }]
+    })
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "ssm" {
@@ -93,6 +108,38 @@ resource "aws_security_group" "web" {
     security_groups = [var.bastion_security_group_id]
   }
 
+  ingress {
+    description = "Allow internal Swarm management traffic"
+    from_port   = 2377
+    to_port     = 2377
+    protocol    = "tcp"
+    self        = true
+  }
+
+  ingress {
+    description = "Allow internal Swarm node communication TCP"
+    from_port   = 7946
+    to_port     = 7946
+    protocol    = "tcp"
+    self        = true
+  }
+
+  ingress {
+    description = "Allow internal Swarm node communication UDP"
+    from_port   = 7946
+    to_port     = 7946
+    protocol    = "udp"
+    self        = true
+  }
+
+  ingress {
+    description = "Allow internal Swarm overlay network traffic"
+    from_port   = 4789
+    to_port     = 4789
+    protocol    = "udp"
+    self        = true
+  }
+
   egress {
     description = "Allow all outbound (Docker pull, yum qua NAT GW)"
     from_port   = 0
@@ -121,7 +168,9 @@ resource "aws_instance" "web" {
   iam_instance_profile        = aws_iam_instance_profile.ec2_ssm.name
   associate_public_ip_address = false
 
-  user_data = base64encode(file("${path.module}/templates/user_data.sh"))
+  user_data = templatefile("${path.module}/templates/user_data.sh", {
+    node_index = count.index
+  })
 
   root_block_device {
     volume_size = 20
@@ -129,8 +178,9 @@ resource "aws_instance" "web" {
   }
 
   tags = {
-    Name = "${local.name_prefix}-voting-app-${count.index + 1}"
-    Role = "voting-app"
+    Name      = "${local.name_prefix}-voting-app-${count.index + 1}"
+    Role      = "voting-app"
+    SwarmRole = count.index == 0 ? "manager" : "worker"
   }
 }
 

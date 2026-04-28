@@ -1,0 +1,22 @@
+terraform {
+  required_version = ">= 1.3.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "ap-southeast-1"
+
+  default_tags {
+    tags = {
+      Project     = "terraform-bootstrap"
+      Environment = "prod"
+      ManagedBy   = "Terraform"
+    }
+  }
+}
