@@ -1,10 +1,5 @@
-# ==============================================================
-# Root Variables
-# Thay đổi giá trị tại terraform.tfvars, không sửa file này
-# ==============================================================
-
 variable "aws_region" {
-  description = "AWS Region để deploy tài nguyên (vd: ap-southeast-1 = Singapore)"
+  description = "AWS Region để deploy tài nguyên"
   type        = string
   default     = "ap-southeast-1"
 }
@@ -31,8 +26,6 @@ variable "environment" {
   }
 }
 
-# ---- Networking ----
-
 variable "vpc_cidr" {
   description = "CIDR block cho toàn bộ VPC"
   type        = string
@@ -57,16 +50,14 @@ variable "availability_zones" {
   default     = ["ap-southeast-1a", "ap-southeast-1b"]
 }
 
-# ---- Compute ----
-
 variable "instance_type" {
   description = "Loại EC2 instance cho Web Server"
   type        = string
-  default     = "t2.micro" # Free Tier eligible
+  default     = "t2.micro" 
 }
 
 variable "instance_count" {
-  description = "Số lượng EC2 Web Server (tối thiểu 2 để có HA)"
+  description = "Số lượng EC2 Web Server"
   type        = number
   default     = 2
 

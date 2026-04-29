@@ -1,20 +1,7 @@
-# ==============================================================
-# Bastion Host Module - Jump Box để SSH vào Private EC2
-#
-# Tài nguyên tạo ra:
-#   - TLS Private Key (tự sinh key pair)
-#   - AWS Key Pair (đăng ký public key lên AWS)
-#   - Security Group (mở SSH port 22 từ Internet)
-#   - EC2 Instance (Public Subnet, có Public IP)
-# ==============================================================
-
 locals {
   name_prefix = "${var.project_name}-${var.environment}"
 }
 
-# ----------------------------------------------------------------
-# Tự sinh SSH Key Pair bằng Terraform
-# ----------------------------------------------------------------
 resource "tls_private_key" "bastion" {
   algorithm = "RSA"
   rsa_bits  = 4096
@@ -25,9 +12,6 @@ resource "aws_key_pair" "bastion" {
   public_key = tls_private_key.bastion.public_key_openssh
 }
 
-# ----------------------------------------------------------------
-# AMI - Amazon Linux 2 (dùng chung AMI với compute module)
-# ----------------------------------------------------------------
 data "aws_ami" "amazon_linux_2" {
   most_recent = true
   owners      = ["amazon"]
@@ -48,9 +32,6 @@ data "aws_ami" "amazon_linux_2" {
   }
 }
 
-# ----------------------------------------------------------------
-# Security Group: Bastion - cho phép SSH từ Internet
-# ----------------------------------------------------------------
 resource "aws_security_group" "bastion" {
   name        = "${local.name_prefix}-bastion-sg"
   description = "Allow SSH access to Bastion Host"

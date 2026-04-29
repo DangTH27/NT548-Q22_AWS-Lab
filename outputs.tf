@@ -1,10 +1,3 @@
-# ==============================================================
-# Root Outputs - Thông tin quan trọng sau khi terraform apply
-# Xem kết quả bằng: terraform output
-# ==============================================================
-
-# ---- Networking ----
-
 output "vpc_id" {
   description = "ID của VPC đã tạo"
   value       = module.vpc.vpc_id
@@ -20,24 +13,20 @@ output "private_subnet_ids" {
   value       = module.vpc.private_subnet_ids
 }
 
-# ---- Application Access ----
-
 output "alb_dns_name" {
   description = "DNS name của Application Load Balancer"
   value       = module.alb.alb_dns_name
 }
 
 output "vote_url" {
-  description = "URL truy cập trang Vote (bỏ phiếu)"
+  description = "URL truy cập trang Vote"
   value       = "http://${module.alb.alb_dns_name}"
 }
 
 output "result_url" {
-  description = "URL truy cập trang Result (kết quả)"
+  description = "URL truy cập trang Result"
   value       = "http://${module.alb.alb_dns_name}:8081"
 }
-
-# ---- Compute ----
 
 output "web_server_instance_ids" {
   description = "IDs của các EC2 Web Server instances"
@@ -45,14 +34,12 @@ output "web_server_instance_ids" {
 }
 
 output "web_server_private_ips" {
-  description = "Private IP của các EC2 instances (dùng để debug nội bộ)"
+  description = "Private IP của các EC2 instances"
   value       = module.compute.instance_private_ips
 }
 
-# ---- Bastion Host ----
-
 output "bastion_public_ip" {
-  description = "Public IP của Bastion Host - SSH vào đây trước"
+  description = "Public IP của Bastion Host"
   value       = module.bastion.bastion_public_ip
 }
 
