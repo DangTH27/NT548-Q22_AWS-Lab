@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Optional public bastion host for SSH access to private app nodes.
+
+Parameters:
+  ProjectName:
+    Type: String
+
+  Environment:
+    Type: String
+
+  PublicSubnetId:
+    Type: AWS::EC2::Subnet::Id
+
+  BastionSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+
+  AmiId:
+    Type: AWS::EC2::Image::Id
+
+  BastionInstanceType:
+    Type: String
+
+  KeyName:
+    Type: String
+    Default: ""
+
+  EnableBastion:
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+
+Conditions:
+  HasKeyName: !Not
+    - !Equals
+      - !Ref KeyName
+      - ""
+  WantsBastion: !Equals
+    - !Ref EnableBastion
+    - "true"
+  CreateBastion: !And
+    - !Condition HasKeyName
+    - !Condition WantsBastion
+
+Resources:
+  BastionHost:
+    Type: AWS::EC2::Instance
+    Condition: CreateBastion
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref BastionInstanceType
+      KeyName: !Ref KeyName
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          SubnetId: !Ref PublicSubnetId
+          GroupSet:
+            - !Ref BastionSecurityGroupId
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 8
+            VolumeType: gp3
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-bastion
+        - Key: Role
+          Value: bastion
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
+
+Outputs:
+  BastionInstanceId:
+    Value: !If
+      - CreateBastion
+      - !Ref BastionHost
+      - ""
+
+  BastionPublicIp:
+    Value: !If
+      - CreateBastion
+      - !GetAtt BastionHost.PublicIp
+      - ""

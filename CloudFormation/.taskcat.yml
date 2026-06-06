@@ -1,0 +1,26 @@
+project:
+  name: voting-app-cfn
+  regions:
+    - ap-southeast-1
+  s3_bucket: nhom6-cfn-artifacts-ap-southeast-1
+
+tests:
+  dev:
+    template: ./main.yaml
+    parameters:
+      ProjectName: nhom6-taskcat
+      Environment: dev
+      VpcCidr: 10.20.0.0/16
+      PublicSubnet1Cidr: 10.20.1.0/24
+      PublicSubnet2Cidr: 10.20.2.0/24
+      PrivateSubnet1Cidr: 10.20.10.0/24
+      PrivateSubnet2Cidr: 10.20.20.0/24
+      AvailabilityZone1: ap-southeast-1a
+      AvailabilityZone2: ap-southeast-1b
+      InstanceType: t3.micro
+      BastionInstanceType: t3.micro
+      KeyName: nhom6-voting-key
+      EnableBastion: "true"
+      AllowedSshCidr: 1.52.34.147/32
+      VotingAppRepoUrl: https://github.com/DangTH27/example-voting-app.git
+      VotingAppStackFile: docker-stack.yml

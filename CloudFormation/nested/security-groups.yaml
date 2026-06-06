@@ -1,0 +1,187 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Security groups for ALB, private app nodes, and optional bastion.
+
+Parameters:
+  ProjectName:
+    Type: String
+
+  Environment:
+    Type: String
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  AllowedSshCidr:
+    Type: String
+
+Resources:
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow public HTTP traffic to the Voting App ALB.
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - Description: Vote app from Internet.
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - Description: Result app from Internet.
+          IpProtocol: tcp
+          FromPort: 8081
+          ToPort: 8081
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress: []
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-alb-sg
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow ALB traffic and internal Swarm traffic to private app nodes.
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - Description: Allow outbound package and image downloads through NAT.
+          IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-app-sg
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  BastionSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow restricted SSH to optional bastion host.
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - Description: SSH from trusted CIDR only.
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AllowedSshCidr
+      SecurityGroupEgress:
+        - Description: Allow bastion outbound traffic.
+          IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-bastion-sg
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  AlbToAppVoteEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      Description: ALB to vote host port.
+      GroupId: !Ref AlbSecurityGroup
+      IpProtocol: tcp
+      FromPort: 8080
+      ToPort: 8080
+      DestinationSecurityGroupId: !Ref AppSecurityGroup
+
+  AlbToAppResultEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      Description: ALB to result host port.
+      GroupId: !Ref AlbSecurityGroup
+      IpProtocol: tcp
+      FromPort: 8081
+      ToPort: 8081
+      DestinationSecurityGroupId: !Ref AppSecurityGroup
+
+  AppVoteIngressFromAlb:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Vote app from ALB.
+      GroupId: !Ref AppSecurityGroup
+      IpProtocol: tcp
+      FromPort: 8080
+      ToPort: 8080
+      SourceSecurityGroupId: !Ref AlbSecurityGroup
+
+  AppResultIngressFromAlb:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Result app from ALB.
+      GroupId: !Ref AppSecurityGroup
+      IpProtocol: tcp
+      FromPort: 8081
+      ToPort: 8081
+      SourceSecurityGroupId: !Ref AlbSecurityGroup
+
+  AppSshIngressFromBastion:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: SSH from bastion only.
+      GroupId: !Ref AppSecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      SourceSecurityGroupId: !Ref BastionSecurityGroup
+
+  AppSwarmManagerIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Swarm management traffic between app nodes.
+      GroupId: !Ref AppSecurityGroup
+      IpProtocol: tcp
+      FromPort: 2377
+      ToPort: 2377
+      SourceSecurityGroupId: !Ref AppSecurityGroup
+
+  AppSwarmGossipTcpIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Swarm gossip TCP between app nodes.
+      GroupId: !Ref AppSecurityGroup
+      IpProtocol: tcp
+      FromPort: 7946
+      ToPort: 7946
+      SourceSecurityGroupId: !Ref AppSecurityGroup
+
+  AppSwarmGossipUdpIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Swarm gossip UDP between app nodes.
+      GroupId: !Ref AppSecurityGroup
+      IpProtocol: udp
+      FromPort: 7946
+      ToPort: 7946
+      SourceSecurityGroupId: !Ref AppSecurityGroup
+
+  AppSwarmOverlayIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Swarm overlay network traffic between app nodes.
+      GroupId: !Ref AppSecurityGroup
+      IpProtocol: udp
+      FromPort: 4789
+      ToPort: 4789
+      SourceSecurityGroupId: !Ref AppSecurityGroup
+
+Outputs:
+  AlbSecurityGroupId:
+    Value: !Ref AlbSecurityGroup
+
+  AppSecurityGroupId:
+    Value: !Ref AppSecurityGroup
+
+  BastionSecurityGroupId:
+    Value: !Ref BastionSecurityGroup

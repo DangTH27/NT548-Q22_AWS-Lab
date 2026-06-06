@@ -1,0 +1,287 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Root nested stack for the AWS DevSecOps Voting App lab.
+Parameters:
+  ProjectName:
+    Type: String
+    Default: nhom6-voting-cfn
+    AllowedPattern: ^[a-z0-9-]+$
+    ConstraintDescription: Use lowercase letters, numbers, and hyphens only.
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+    - dev
+    - staging
+    - prod
+  VpcCidr:
+    Type: String
+    Default: 10.10.0.0/16
+  PublicSubnet1Cidr:
+    Type: String
+    Default: 10.10.1.0/24
+  PublicSubnet2Cidr:
+    Type: String
+    Default: 10.10.2.0/24
+  PrivateSubnet1Cidr:
+    Type: String
+    Default: 10.10.10.0/24
+  PrivateSubnet2Cidr:
+    Type: String
+    Default: 10.10.20.0/24
+  AvailabilityZone1:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: ap-southeast-1a
+  AvailabilityZone2:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: ap-southeast-1b
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues:
+    - t3.micro
+    - t3.small
+  BastionInstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues:
+    - t3.micro
+    - t3.small
+  KeyName:
+    Type: String
+    Default: nhom6-voting-key
+    Description: Existing EC2 key pair name. Leave empty for SSM-only access.
+  EnableBastion:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+    - 'true'
+    - 'false'
+  AllowedSshCidr:
+    Type: String
+    Default: 1.52.34.147/32
+    Description: CIDR allowed to SSH to the bastion if EnableBastion is true.
+  VotingAppRepoUrl:
+    Type: String
+    Default: https://github.com/DangTH27/example-voting-app.git
+  VotingAppStackFile:
+    Type: String
+    Default: docker-stack.yml
+Resources:
+  NetworkStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3.ap-southeast-1.amazonaws.com/nhom6-cfn-artifacts-ap-southeast-1/18f9c669a29b0144ac75d34efdfc7e34.template
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        Environment:
+          Ref: Environment
+        VpcCidr:
+          Ref: VpcCidr
+        PublicSubnet1Cidr:
+          Ref: PublicSubnet1Cidr
+        PublicSubnet2Cidr:
+          Ref: PublicSubnet2Cidr
+        PrivateSubnet1Cidr:
+          Ref: PrivateSubnet1Cidr
+        PrivateSubnet2Cidr:
+          Ref: PrivateSubnet2Cidr
+        AvailabilityZone1:
+          Ref: AvailabilityZone1
+        AvailabilityZone2:
+          Ref: AvailabilityZone2
+  SecurityGroupsStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3.ap-southeast-1.amazonaws.com/nhom6-cfn-artifacts-ap-southeast-1/ba3a02fc085c101d79ab7b7df746ba95.template
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        Environment:
+          Ref: Environment
+        VpcId:
+          Fn::GetAtt:
+          - NetworkStack
+          - Outputs.VpcId
+        AllowedSshCidr:
+          Ref: AllowedSshCidr
+  IamStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3.ap-southeast-1.amazonaws.com/nhom6-cfn-artifacts-ap-southeast-1/4e1d8743447833a8aa9bbe8ab695d523.template
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        Environment:
+          Ref: Environment
+  BastionStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3.ap-southeast-1.amazonaws.com/nhom6-cfn-artifacts-ap-southeast-1/e586dc70dd0d632c19efde38faa65bc5.template
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        Environment:
+          Ref: Environment
+        PublicSubnetId:
+          Fn::GetAtt:
+          - NetworkStack
+          - Outputs.PublicSubnet1Id
+        BastionSecurityGroupId:
+          Fn::GetAtt:
+          - SecurityGroupsStack
+          - Outputs.BastionSecurityGroupId
+        AmiId:
+          Ref: AmiId
+        BastionInstanceType:
+          Ref: BastionInstanceType
+        KeyName:
+          Ref: KeyName
+        EnableBastion:
+          Ref: EnableBastion
+  ComputeStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3.ap-southeast-1.amazonaws.com/nhom6-cfn-artifacts-ap-southeast-1/c89eddf6640266de5844e1c7b3893292.template
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        Environment:
+          Ref: Environment
+        AmiId:
+          Ref: AmiId
+        InstanceType:
+          Ref: InstanceType
+        KeyName:
+          Ref: KeyName
+        PrivateSubnet1Id:
+          Fn::GetAtt:
+          - NetworkStack
+          - Outputs.PrivateSubnet1Id
+        PrivateSubnet2Id:
+          Fn::GetAtt:
+          - NetworkStack
+          - Outputs.PrivateSubnet2Id
+        AppSecurityGroupId:
+          Fn::GetAtt:
+          - SecurityGroupsStack
+          - Outputs.AppSecurityGroupId
+        InstanceProfileName:
+          Fn::GetAtt:
+          - IamStack
+          - Outputs.InstanceProfileName
+        VotingAppRepoUrl:
+          Ref: VotingAppRepoUrl
+        VotingAppStackFile:
+          Ref: VotingAppStackFile
+  AlbStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3.ap-southeast-1.amazonaws.com/nhom6-cfn-artifacts-ap-southeast-1/a193aede9806a39dbbde0f361571768c.template
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        Environment:
+          Ref: Environment
+        VpcId:
+          Fn::GetAtt:
+          - NetworkStack
+          - Outputs.VpcId
+        PublicSubnet1Id:
+          Fn::GetAtt:
+          - NetworkStack
+          - Outputs.PublicSubnet1Id
+        PublicSubnet2Id:
+          Fn::GetAtt:
+          - NetworkStack
+          - Outputs.PublicSubnet2Id
+        AlbSecurityGroupId:
+          Fn::GetAtt:
+          - SecurityGroupsStack
+          - Outputs.AlbSecurityGroupId
+        ManagerInstanceId:
+          Fn::GetAtt:
+          - ComputeStack
+          - Outputs.ManagerInstanceId
+        WorkerInstanceId:
+          Fn::GetAtt:
+          - ComputeStack
+          - Outputs.WorkerInstanceId
+Outputs:
+  VpcId:
+    Description: Created VPC ID.
+    Value:
+      Fn::GetAtt:
+      - NetworkStack
+      - Outputs.VpcId
+  PublicSubnetIds:
+    Description: Comma-separated public subnet IDs.
+    Value:
+      Fn::Join:
+      - ','
+      - - Fn::GetAtt:
+          - NetworkStack
+          - Outputs.PublicSubnet1Id
+        - Fn::GetAtt:
+          - NetworkStack
+          - Outputs.PublicSubnet2Id
+  PrivateSubnetIds:
+    Description: Comma-separated private subnet IDs.
+    Value:
+      Fn::Join:
+      - ','
+      - - Fn::GetAtt:
+          - NetworkStack
+          - Outputs.PrivateSubnet1Id
+        - Fn::GetAtt:
+          - NetworkStack
+          - Outputs.PrivateSubnet2Id
+  AlbDnsName:
+    Description: DNS name of the internet-facing Application Load Balancer.
+    Value:
+      Fn::GetAtt:
+      - AlbStack
+      - Outputs.AlbDnsName
+  VoteUrl:
+    Description: Vote application URL.
+    Value:
+      Fn::GetAtt:
+      - AlbStack
+      - Outputs.VoteUrl
+  ResultUrl:
+    Description: Result application URL.
+    Value:
+      Fn::GetAtt:
+      - AlbStack
+      - Outputs.ResultUrl
+  AppInstanceIds:
+    Description: Comma-separated private application EC2 instance IDs.
+    Value:
+      Fn::Join:
+      - ','
+      - - Fn::GetAtt:
+          - ComputeStack
+          - Outputs.ManagerInstanceId
+        - Fn::GetAtt:
+          - ComputeStack
+          - Outputs.WorkerInstanceId
+  AppPrivateIps:
+    Description: Comma-separated private application EC2 IP addresses.
+    Value:
+      Fn::Join:
+      - ','
+      - - Fn::GetAtt:
+          - ComputeStack
+          - Outputs.ManagerPrivateIp
+        - Fn::GetAtt:
+          - ComputeStack
+          - Outputs.WorkerPrivateIp
+  BastionPublicIp:
+    Description: Bastion public IP when EnableBastion is true and KeyName is set.
+    Value:
+      Fn::GetAtt:
+      - BastionStack
+      - Outputs.BastionPublicIp

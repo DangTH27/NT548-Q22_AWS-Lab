@@ -1,0 +1,216 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Root nested stack for the AWS DevSecOps Voting App lab.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: nhom6-voting-cfn
+    AllowedPattern: "^[a-z0-9-]+$"
+    ConstraintDescription: Use lowercase letters, numbers, and hyphens only.
+
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+
+  VpcCidr:
+    Type: String
+    Default: 10.10.0.0/16
+
+  PublicSubnet1Cidr:
+    Type: String
+    Default: 10.10.1.0/24
+
+  PublicSubnet2Cidr:
+    Type: String
+    Default: 10.10.2.0/24
+
+  PrivateSubnet1Cidr:
+    Type: String
+    Default: 10.10.10.0/24
+
+  PrivateSubnet2Cidr:
+    Type: String
+    Default: 10.10.20.0/24
+
+  AvailabilityZone1:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: ap-southeast-1a
+
+  AvailabilityZone2:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: ap-southeast-1b
+
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues:
+      - t3.micro
+      - t3.small
+
+  BastionInstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues:
+      - t3.micro
+      - t3.small
+
+  KeyName:
+    Type: String
+    Default: nhom6-voting-key
+    Description: Existing EC2 key pair name. Leave empty for SSM-only access.
+
+  EnableBastion:
+    Type: String
+    Default: "true"
+    AllowedValues:
+      - "true"
+      - "false"
+
+  AllowedSshCidr:
+    Type: String
+    Default: 1.52.34.147/32
+    Description: CIDR allowed to SSH to the bastion if EnableBastion is true.
+
+  VotingAppRepoUrl:
+    Type: String
+    Default: https://github.com/DangTH27/example-voting-app.git
+
+  VotingAppStackFile:
+    Type: String
+    Default: docker-stack.yml
+
+Resources:
+  NetworkStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: nested/network.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        VpcCidr: !Ref VpcCidr
+        PublicSubnet1Cidr: !Ref PublicSubnet1Cidr
+        PublicSubnet2Cidr: !Ref PublicSubnet2Cidr
+        PrivateSubnet1Cidr: !Ref PrivateSubnet1Cidr
+        PrivateSubnet2Cidr: !Ref PrivateSubnet2Cidr
+        AvailabilityZone1: !Ref AvailabilityZone1
+        AvailabilityZone2: !Ref AvailabilityZone2
+
+  SecurityGroupsStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: nested/security-groups.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+        AllowedSshCidr: !Ref AllowedSshCidr
+
+  IamStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: nested/iam.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+
+  BastionStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: nested/bastion.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        PublicSubnetId: !GetAtt NetworkStack.Outputs.PublicSubnet1Id
+        BastionSecurityGroupId: !GetAtt SecurityGroupsStack.Outputs.BastionSecurityGroupId
+        AmiId: !Ref AmiId
+        BastionInstanceType: !Ref BastionInstanceType
+        KeyName: !Ref KeyName
+        EnableBastion: !Ref EnableBastion
+
+  ComputeStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: nested/compute.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        AmiId: !Ref AmiId
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyName
+        PrivateSubnet1Id: !GetAtt NetworkStack.Outputs.PrivateSubnet1Id
+        PrivateSubnet2Id: !GetAtt NetworkStack.Outputs.PrivateSubnet2Id
+        AppSecurityGroupId: !GetAtt SecurityGroupsStack.Outputs.AppSecurityGroupId
+        InstanceProfileName: !GetAtt IamStack.Outputs.InstanceProfileName
+        VotingAppRepoUrl: !Ref VotingAppRepoUrl
+        VotingAppStackFile: !Ref VotingAppStackFile
+
+  AlbStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: nested/alb.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+        PublicSubnet1Id: !GetAtt NetworkStack.Outputs.PublicSubnet1Id
+        PublicSubnet2Id: !GetAtt NetworkStack.Outputs.PublicSubnet2Id
+        AlbSecurityGroupId: !GetAtt SecurityGroupsStack.Outputs.AlbSecurityGroupId
+        ManagerInstanceId: !GetAtt ComputeStack.Outputs.ManagerInstanceId
+        WorkerInstanceId: !GetAtt ComputeStack.Outputs.WorkerInstanceId
+
+Outputs:
+  VpcId:
+    Description: Created VPC ID.
+    Value: !GetAtt NetworkStack.Outputs.VpcId
+
+  PublicSubnetIds:
+    Description: Comma-separated public subnet IDs.
+    Value: !Join
+      - ","
+      - - !GetAtt NetworkStack.Outputs.PublicSubnet1Id
+        - !GetAtt NetworkStack.Outputs.PublicSubnet2Id
+
+  PrivateSubnetIds:
+    Description: Comma-separated private subnet IDs.
+    Value: !Join
+      - ","
+      - - !GetAtt NetworkStack.Outputs.PrivateSubnet1Id
+        - !GetAtt NetworkStack.Outputs.PrivateSubnet2Id
+
+  AlbDnsName:
+    Description: DNS name of the internet-facing Application Load Balancer.
+    Value: !GetAtt AlbStack.Outputs.AlbDnsName
+
+  VoteUrl:
+    Description: Vote application URL.
+    Value: !GetAtt AlbStack.Outputs.VoteUrl
+
+  ResultUrl:
+    Description: Result application URL.
+    Value: !GetAtt AlbStack.Outputs.ResultUrl
+
+  AppInstanceIds:
+    Description: Comma-separated private application EC2 instance IDs.
+    Value: !Join
+      - ","
+      - - !GetAtt ComputeStack.Outputs.ManagerInstanceId
+        - !GetAtt ComputeStack.Outputs.WorkerInstanceId
+
+  AppPrivateIps:
+    Description: Comma-separated private application EC2 IP addresses.
+    Value: !Join
+      - ","
+      - - !GetAtt ComputeStack.Outputs.ManagerPrivateIp
+        - !GetAtt ComputeStack.Outputs.WorkerPrivateIp
+
+  BastionPublicIp:
+    Description: Bastion public IP when EnableBastion is true and KeyName is set.
+    Value: !GetAtt BastionStack.Outputs.BastionPublicIp

@@ -1,0 +1,156 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Internet-facing ALB, listeners, and target groups for the Voting App lab.
+
+Parameters:
+  ProjectName:
+    Type: String
+
+  Environment:
+    Type: String
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  PublicSubnet1Id:
+    Type: AWS::EC2::Subnet::Id
+
+  PublicSubnet2Id:
+    Type: AWS::EC2::Subnet::Id
+
+  AlbSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+
+  ManagerInstanceId:
+    Type: String
+
+  WorkerInstanceId:
+    Type: String
+
+Resources:
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      Type: application
+      IpAddressType: ipv4
+      SecurityGroups:
+        - !Ref AlbSecurityGroupId
+      Subnets:
+        - !Ref PublicSubnet1Id
+        - !Ref PublicSubnet2Id
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-alb
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  VoteTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: 8080
+      TargetType: instance
+      HealthCheckEnabled: true
+      HealthCheckPath: /
+      HealthCheckPort: "8080"
+      HealthCheckProtocol: HTTP
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      Matcher:
+        HttpCode: "200"
+      Targets:
+        - Id: !Ref ManagerInstanceId
+          Port: 8080
+        - Id: !Ref WorkerInstanceId
+          Port: 8080
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-vote-tg
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  ResultTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: 8081
+      TargetType: instance
+      HealthCheckEnabled: true
+      HealthCheckPath: /
+      HealthCheckPort: "8081"
+      HealthCheckProtocol: HTTP
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      Matcher:
+        HttpCode: "200"
+      Targets:
+        - Id: !Ref ManagerInstanceId
+          Port: 8081
+        - Id: !Ref WorkerInstanceId
+          Port: 8081
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-result-tg
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  VoteListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref VoteTargetGroup
+
+  ResultListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 8081
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ResultTargetGroup
+
+Outputs:
+  AlbDnsName:
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+
+  AlbArn:
+    Value: !Ref ApplicationLoadBalancer
+
+  VoteTargetGroupArn:
+    Value: !Ref VoteTargetGroup
+
+  ResultTargetGroupArn:
+    Value: !Ref ResultTargetGroup
+
+  VoteUrl:
+    Value: !Sub
+      - http://${DnsName}
+      - DnsName: !GetAtt ApplicationLoadBalancer.DNSName
+
+  ResultUrl:
+    Value: !Sub
+      - http://${DnsName}:8081
+      - DnsName: !GetAtt ApplicationLoadBalancer.DNSName

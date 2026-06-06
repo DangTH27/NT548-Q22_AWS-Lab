@@ -1,0 +1,42 @@
+version: 0.2
+
+env:
+  variables:
+    AWS_REGION: ap-southeast-1
+    CFN_ARTIFACT_BUCKET: nhom6-cfn-artifacts-ap-southeast-1
+    RUN_TASKCAT: "false"
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - python --version
+      - pip install --upgrade pip
+      - pip install --upgrade cfn-lint taskcat
+
+  pre_build:
+    commands:
+      - echo "Running CloudFormation lint checks"
+      - cfn-lint -i W3002 -- CloudFormation/main.yaml CloudFormation/nested/*.yaml
+
+  build:
+    commands:
+      - test "$CFN_ARTIFACT_BUCKET" != ""
+      - echo "Packaging nested CloudFormation templates"
+      - aws cloudformation package --template-file CloudFormation/main.yaml --s3-bucket "$CFN_ARTIFACT_BUCKET" --output-template-file CloudFormation/packaged.yaml
+      - echo "Validating packaged template"
+      - aws cloudformation validate-template --template-body file://CloudFormation/packaged.yaml
+      - |
+        if [ "$RUN_TASKCAT" = "true" ]; then
+          cd CloudFormation
+          taskcat test run
+          cd ..
+        else
+          echo "Taskcat skipped. Set RUN_TASKCAT=true to run live stack tests."
+        fi
+
+artifacts:
+  files:
+    - CloudFormation/packaged.yaml
+    - CloudFormation/parameters/dev.json

@@ -1,0 +1,66 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: IAM role and instance profile for private EC2 app nodes.
+
+Parameters:
+  ProjectName:
+    Type: String
+
+  Environment:
+    Type: String
+
+Resources:
+  Ec2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: ssm-swarm-parameters
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: SwarmParameterAccess
+                Effect: Allow
+                Action:
+                  - ssm:PutParameter
+                  - ssm:GetParameter
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectName}/${Environment}/*
+              - Sid: SecureStringKmsAccessViaSsm
+                Effect: Allow
+                Action:
+                  - kms:Encrypt
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    "kms:ViaService": !Sub ssm.${AWS::Region}.amazonaws.com
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-ec2-ssm-role
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  Ec2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref Ec2Role
+
+Outputs:
+  InstanceProfileName:
+    Value: !Ref Ec2InstanceProfile
+
+  Ec2RoleArn:
+    Value: !GetAtt Ec2Role.Arn

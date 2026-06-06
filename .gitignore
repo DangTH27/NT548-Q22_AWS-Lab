@@ -21,3 +21,8 @@ override.tf.json
 
 # SSH Keys
 *.pem
+
+# Local agent instructions and report drafts
+AGENTS.md
+CLOUDFORMATION_IMPLEMENTATION_GUIDE.md
+DEVSECOPS_PRACTICE_A_DEPLOYMENT_GUIDE.md

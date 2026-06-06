@@ -1,0 +1,232 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Private EC2 Docker Swarm nodes and ALB target attachments.
+
+Parameters:
+  ProjectName:
+    Type: String
+
+  Environment:
+    Type: String
+
+  AmiId:
+    Type: AWS::EC2::Image::Id
+
+  InstanceType:
+    Type: String
+
+  KeyName:
+    Type: String
+    Default: ""
+
+  PrivateSubnet1Id:
+    Type: AWS::EC2::Subnet::Id
+
+  PrivateSubnet2Id:
+    Type: AWS::EC2::Subnet::Id
+
+  AppSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+
+  InstanceProfileName:
+    Type: String
+
+  VotingAppRepoUrl:
+    Type: String
+
+  VotingAppStackFile:
+    Type: String
+
+Conditions:
+  HasKeyName: !Not
+    - !Equals
+      - !Ref KeyName
+      - ""
+
+Resources:
+  ManagerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfileName
+      KeyName: !If
+        - HasKeyName
+        - !Ref KeyName
+        - !Ref AWS::NoValue
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: false
+          DeviceIndex: 0
+          SubnetId: !Ref PrivateSubnet1Id
+          GroupSet:
+            - !Ref AppSecurityGroupId
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp3
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euo pipefail
+          exec > >(tee /var/log/voting-app-deploy.log) 2>&1
+
+          echo "=== Voting App Swarm Manager Deployment Started $(date) ==="
+
+          REGION="${AWS::Region}"
+          PARAM_PREFIX="/${ProjectName}/${Environment}"
+
+          MAX_WAIT=300
+          WAITED=0
+          until curl -s --max-time 5 https://aws.amazon.com > /dev/null 2>&1; do
+            if [ "$WAITED" -ge "$MAX_WAIT" ]; then
+              echo "ERROR: No internet after $MAX_WAIT seconds"
+              exit 1
+            fi
+            sleep 10
+            WAITED=$((WAITED + 10))
+          done
+
+          if [ ! -f /swapfile ]; then
+            fallocate -l 1G /swapfile
+            chmod 600 /swapfile
+            mkswap /swapfile
+            swapon /swapfile
+            echo '/swapfile none swap sw 0 0' >> /etc/fstab
+          fi
+
+          yum update -y
+          yum install -y git
+          amazon-linux-extras install docker -y
+          systemctl enable --now docker
+          usermod -aG docker ec2-user || true
+
+          PRIVATE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+          SWARM_STATE=$(docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null || echo inactive)
+
+          if [ "$SWARM_STATE" != "active" ]; then
+            docker swarm init --advertise-addr "$PRIVATE_IP"
+          fi
+
+          WORKER_TOKEN=$(docker swarm join-token -q worker)
+          aws ssm put-parameter --name "$PARAM_PREFIX/swarm-token" --value "$WORKER_TOKEN" --type "SecureString" --overwrite --region "$REGION"
+          aws ssm put-parameter --name "$PARAM_PREFIX/manager-ip" --value "$PRIVATE_IP" --type "String" --overwrite --region "$REGION"
+
+          rm -rf /opt/voting-app
+          git clone --depth 1 "${VotingAppRepoUrl}" /opt/voting-app
+          cd /opt/voting-app
+          docker stack deploy --compose-file "${VotingAppStackFile}" voting-app
+
+          echo "=== Voting App Swarm Manager Deployment Completed $(date) ==="
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-voting-app-1
+        - Key: Role
+          Value: voting-app
+        - Key: SwarmRole
+          Value: manager
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  WorkerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfileName
+      KeyName: !If
+        - HasKeyName
+        - !Ref KeyName
+        - !Ref AWS::NoValue
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: false
+          DeviceIndex: 0
+          SubnetId: !Ref PrivateSubnet2Id
+          GroupSet:
+            - !Ref AppSecurityGroupId
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp3
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euo pipefail
+          exec > >(tee /var/log/voting-app-deploy.log) 2>&1
+
+          echo "=== Voting App Swarm Worker Deployment Started $(date) ==="
+
+          REGION="${AWS::Region}"
+          PARAM_PREFIX="/${ProjectName}/${Environment}"
+
+          MAX_WAIT=300
+          WAITED=0
+          until curl -s --max-time 5 https://aws.amazon.com > /dev/null 2>&1; do
+            if [ "$WAITED" -ge "$MAX_WAIT" ]; then
+              echo "ERROR: No internet after $MAX_WAIT seconds"
+              exit 1
+            fi
+            sleep 10
+            WAITED=$((WAITED + 10))
+          done
+
+          if [ ! -f /swapfile ]; then
+            fallocate -l 1G /swapfile
+            chmod 600 /swapfile
+            mkswap /swapfile
+            swapon /swapfile
+            echo '/swapfile none swap sw 0 0' >> /etc/fstab
+          fi
+
+          yum update -y
+          yum install -y git
+          amazon-linux-extras install docker -y
+          systemctl enable --now docker
+          usermod -aG docker ec2-user || true
+
+          echo "Waiting for Swarm manager metadata in SSM Parameter Store..."
+          until aws ssm get-parameter --name "$PARAM_PREFIX/swarm-token" --region "$REGION" > /dev/null 2>&1; do
+            sleep 10
+          done
+
+          WORKER_TOKEN=$(aws ssm get-parameter --name "$PARAM_PREFIX/swarm-token" --with-decryption --query "Parameter.Value" --output text --region "$REGION")
+          MANAGER_IP=$(aws ssm get-parameter --name "$PARAM_PREFIX/manager-ip" --query "Parameter.Value" --output text --region "$REGION")
+          SWARM_STATE=$(docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null || echo inactive)
+
+          if [ "$SWARM_STATE" != "active" ]; then
+            docker swarm join --token "$WORKER_TOKEN" "$MANAGER_IP:2377"
+          fi
+
+          echo "=== Voting App Swarm Worker Deployment Completed $(date) ==="
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-voting-app-2
+        - Key: Role
+          Value: voting-app
+        - Key: SwarmRole
+          Value: worker
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
+
+Outputs:
+  ManagerInstanceId:
+    Value: !Ref ManagerInstance
+
+  WorkerInstanceId:
+    Value: !Ref WorkerInstance
+
+  ManagerPrivateIp:
+    Value: !GetAtt ManagerInstance.PrivateIp
+
+  WorkerPrivateIp:
+    Value: !GetAtt WorkerInstance.PrivateIp

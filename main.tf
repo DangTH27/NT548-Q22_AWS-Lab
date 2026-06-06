@@ -34,7 +34,7 @@ module "alb" {
 
 # ------ Layer 2.5: Bastion Host (SSH Jump Box) ------
 module "bastion" {
-  source = "./modules/bastion"
+  source = "./modules/compute/bastion"
 
   project_name     = var.project_name
   environment      = var.environment
