@@ -1,0 +1,26 @@
+{
+  "Parameters": {
+    "ProjectName": "nhom6-voting-cfn",
+    "Environment": "dev",
+    "VpcCidr": "10.10.0.0/16",
+    "PublicSubnet1Cidr": "10.10.1.0/24",
+    "PublicSubnet2Cidr": "10.10.2.0/24",
+    "PrivateSubnet1Cidr": "10.10.10.0/24",
+    "PrivateSubnet2Cidr": "10.10.20.0/24",
+    "AvailabilityZone1": "ap-southeast-1a",
+    "AvailabilityZone2": "ap-southeast-1b",
+    "AmiId": "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2",
+    "InstanceType": "t3.micro",
+    "BastionInstanceType": "t3.micro",
+    "KeyName": "nhom6-voting-key",
+    "EnableBastion": "true",
+    "AllowedSshCidr": "1.52.34.147/32",
+    "VotingAppRepoUrl": "https://github.com/DangTH27/example-voting-app.git",
+    "VotingAppStackFile": "docker-stack.yml"
+  },
+  "Tags": {
+    "Project": "nhom6-voting-cfn",
+    "Environment": "dev",
+    "ManagedBy": "CodePipeline"
+  }
+}

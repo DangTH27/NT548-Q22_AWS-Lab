@@ -40,3 +40,4 @@ artifacts:
   files:
     - CloudFormation/packaged.yaml
     - CloudFormation/parameters/dev.json
+    - CloudFormation/parameters/dev-pipeline.json
