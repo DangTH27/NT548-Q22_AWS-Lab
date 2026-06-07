@@ -21,6 +21,6 @@
   "Tags": {
     "Project": "nhom6-voting-cfn",
     "Environment": "dev",
-    "ManagedBy": "CodePipeline"
+    "ManagedBy": "CodePipeline-Demo"
   }
 }
