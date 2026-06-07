@@ -49,7 +49,7 @@
   },
   {
     "ParameterKey": "KeyName",
-    "ParameterValue": "nhom6-voting-key"
+    "ParameterValue": "nhom6-cfn-voting-app"
   },
   {
     "ParameterKey": "EnableBastion",

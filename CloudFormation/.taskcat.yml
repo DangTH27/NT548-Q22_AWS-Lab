@@ -2,7 +2,7 @@ project:
   name: voting-app-cfn
   regions:
     - ap-southeast-1
-  s3_bucket: nhom6-cfn-artifacts-ap-southeast-1
+  s3_bucket: nhom6-cfn-artifacts-275057777292-ap-southeast-1
 
 tests:
   dev:
@@ -19,7 +19,7 @@ tests:
       AvailabilityZone2: ap-southeast-1b
       InstanceType: t3.micro
       BastionInstanceType: t3.micro
-      KeyName: nhom6-voting-key
+      KeyName: nhom6-cfn-voting-app
       EnableBastion: "true"
       AllowedSshCidr: 1.52.34.147/32
       VotingAppRepoUrl: https://github.com/DangTH27/example-voting-app.git

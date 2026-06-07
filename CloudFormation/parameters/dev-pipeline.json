@@ -12,7 +12,7 @@
     "AmiId": "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2",
     "InstanceType": "t3.micro",
     "BastionInstanceType": "t3.micro",
-    "KeyName": "nhom6-voting-key",
+    "KeyName": "nhom6-cfn-voting-app",
     "EnableBastion": "true",
     "AllowedSshCidr": "1.52.34.147/32",
     "VotingAppRepoUrl": "https://github.com/DangTH27/example-voting-app.git",

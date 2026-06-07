@@ -36,13 +36,13 @@ Parameters:
 
   PipelineArtifactBucketName:
     Type: String
-    Default: nhom6-codepipeline-artifacts-ap-southeast-1
+    Default: nhom6-codepipeline-artifacts-275057777292-ap-southeast-1
     AllowedPattern: "^[a-z0-9.-]+$"
     ConstraintDescription: Use a globally unique S3 bucket name.
 
   CfnArtifactBucketName:
     Type: String
-    Default: nhom6-cfn-artifacts-ap-southeast-1
+    Default: nhom6-cfn-artifacts-275057777292-ap-southeast-1
     AllowedPattern: "^[a-z0-9.-]+$"
     ConstraintDescription: Use a globally unique S3 bucket name.
 

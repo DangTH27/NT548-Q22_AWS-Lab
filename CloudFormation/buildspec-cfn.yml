@@ -3,7 +3,7 @@ version: 0.2
 env:
   variables:
     AWS_REGION: ap-southeast-1
-    CFN_ARTIFACT_BUCKET: nhom6-cfn-artifacts-ap-southeast-1
+    CFN_ARTIFACT_BUCKET: nhom6-cfn-artifacts-275057777292-ap-southeast-1
     RUN_TASKCAT: "false"
 
 phases:

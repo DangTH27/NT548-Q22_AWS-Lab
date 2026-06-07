@@ -64,7 +64,7 @@ Parameters:
 
   KeyName:
     Type: String
-    Default: nhom6-voting-key
+    Default: nhom6-cfn-voting-app
     Description: Existing EC2 key pair name. Leave empty for SSM-only access.
 
   EnableBastion:
