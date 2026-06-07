@@ -739,5 +739,5 @@ Lưu ý: các S3 artifact buckets đang có `DeletionPolicy: Retain`, nên có t
 Lưu ý chi phí: NAT Gateway, ALB, EC2, Elastic IP, S3 artifact bucket, CodeBuild và CodePipeline có thể phát sinh phí nếu để chạy lâu.
 
 ---
-**Tác giả:** Trần Hải Đăng  
-**Học phần:** DevSecOps & Điện toán Đám mây (Cloud Computing)
+**Tác giả:** Nguyễn Lê Nhật Đăng - 2352031; Trần Hải Đăng - 23520237; Phan Hồng Đạt - 23520266
+**Học phần:** Công nghệ DevOps và ứng dụng
