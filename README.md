@@ -32,6 +32,7 @@ Tạo một IAM role mới và tạo access token cho third-party service sau đ
 
 Trong repo của Microservice: [Đường dẫn tới repo Voting App](https://github.com/DangTH27/example-voting-app.git)
 ![Các secret trong repo Voting App](docs/images/github-secret-app.png)
+
 Thêm IAM role tương tự.
 Tạo token từ DockerHub và [SonarCloud](https://sonarcloud.io/explore/projects) sau đó thêm vào secret.
 ## 3. Hướng dẫn Triển khai bằng Terraform
